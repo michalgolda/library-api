@@ -3,71 +3,46 @@
 namespace App\Http\Controllers;
 
 use App\Http\Resources\BookResource;
-use App\Models\Book;
-use App\Models\Customer;
+use App\Interfaces\BookRepositoryInterface;
+use App\Interfaces\CustomerRepositoryInterface;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller;
 
 class BookController extends Controller
 {
+    private $bookRepository;
+    private $customerRepository;
+
+    public function __construct(BookRepositoryInterface $bookRepository, CustomerRepositoryInterface $customerRepository)
+    {
+        $this->bookRepository = $bookRepository;
+        $this->customerRepository = $customerRepository;
+    }
+
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
     {
-        $query = Book::query();
+        $filters = $request->query();
+        $existingBooks = $this->bookRepository->all($filters);
+        $serializedBooks = BookResource::collection($existingBooks);
 
-        $activeFilters = false;
-
-        if ($request->filled('title')) {
-            $title = $request->title;
-            $query->where('title', $title);
-            $activeFilters = true;
-        }
-
-        if ($request->filled('author')) {
-            $author = $request->author;
-            $query->where('author', $author);
-            $activeFilters = true;
-        }
-
-        if ($request->filled('rented_by_first_name')) {
-            $rentedByFirstName = $request->rented_by_first_name;
-            $query->whereHas('rentedBy', function ($q) use ($rentedByFirstName) {
-                $q->where('first_name', $rentedByFirstName);
-            });
-            $activeFilters = true;
-        }
-
-        if ($request->filled('rented_by_last_name')) {
-            $rentedByLastName = $request->rented_by_last_name;
-            $query->whereHas('rentedBy', function ($q) use ($rentedByLastName) {
-                $q->where('last_name', $rentedByLastName);
-            });
-            $activeFilters = true;
-        }
-        $existingBooks = $query->paginate(20);
-
-        $response = [
-            'ok' => true,
-            'data' => BookResource::collection($existingBooks)
-        ];
-
-        if (!$activeFilters) {
-            $response['meta'] = [
+        return response()->json([
+            'data' => $serializedBooks,
+            'meta' => [
                 'current_page' => $existingBooks->currentPage(),
                 'last_page' => $existingBooks->lastPage(),
                 'per_page' => $existingBooks->perPage(),
                 'total' => $existingBooks->total()
-            ];
-            $response['links'] = [
+            ],
+            'links' => [
                 'first' => $existingBooks->url(1),
                 'last' => $existingBooks->url($existingBooks->lastPage()),
                 'prev' => $existingBooks->previousPageUrl(),
                 'next' => $existingBooks->nextPageUrl(),
-            ];
-        }
-
-        return response()->json($response);
+            ]
+        ]);
     }
 
 
@@ -76,55 +51,51 @@ class BookController extends Controller
      */
     public function show($bookId)
     {
-        $existingBook = Book::find($bookId);
-        if (!$existingBook) return response()->json(['ok' => false, 'message' => 'Book not found']);
+        $existingBook = $this->bookRepository->getById($bookId);
+        if (!$existingBook) return response()->json(['message' => 'Book not found']);
 
-        return response()->json(['ok' => true, 'data' => new BookResource($existingBook)]);
+        $serializedBook = new BookResource($existingBook);
+
+        return response()->json(['data' => $serializedBook]);
     }
 
     public function rent(Request $request, $bookId)
     {
-        $existingBook = Book::find($bookId);
-        if (!$existingBook) return response()->json(['ok' => true, 'message' => 'Book not found'], 404);
-        if ($existingBook->rentedBy()->exists()) return response()->json(['ok' => true, 'message' => 'Book already rented'], 400);
+        $existingBook = $this->bookRepository->getById($bookId);
+        if (!$existingBook) return response()->json(['message' => 'Book not found'], 404);
+        if ($existingBook->rentedBy()->exists()) return response()->json(['message' => 'Book already rented'], 400);
 
         $customerId = $request->get('customer_id');
-        if (!$customerId) return response()->json(['ok' => true, 'message' => 'customer_id query is required'], 400);
+        if (!$customerId) return response()->json(['message' => '"customer_id" query is required'], 400);
 
-        $existingCustomer = Customer::find($customerId);
-        if (!$existingCustomer) return response()->json(['ok' => true, 'message' => 'Customer not found'], 404);
+        $existingCustomer = $this->customerRepository->getById($customerId);
+        if (!$existingCustomer) return response()->json(['message' => 'Customer not found'], 404);
 
-        $existingBook->rented_by = $customerId;
-        $existingBook->save();
-        $existingBook->refresh();
+        $this->bookRepository->update($existingBook->id, ['rented_by' => $customerId]);
 
-
-        return response()->json(['ok' => true, 'message' => 'Book successfully rented']);
+        return response()->json(['message' => 'Book successfully rented']);
     }
 
     public function return(Request $request, $bookId)
     {
         $customerId = $request->get('customer_id');
-        if (!$customerId) return response()->json(['ok' => true, 'message' => 'customer_id query is required'], 400);
+        if (!$customerId) return response()->json(['message' => '"customer_id" query is required'], 400);
 
-        $existingCustomer = Customer::find($customerId);
-        if (!$existingCustomer) return response()->json(['ok' => true, 'message' => 'Customer not found'], 404);
+        $existingCustomer = $this->customerRepository->getById($customerId);
+        if (!$existingCustomer) return response()->json(['message' => 'Customer not found'], 404);
 
-        $existingBook = Book::find($bookId);
-        if (!$existingBook) return response()->json(['ok' => true, 'message' => 'Book not found'], 404);
+        $existingBook = $this->bookRepository->getById($bookId);
+        if (!$existingBook) return response()->json(['message' => 'Book not found'], 404);
         if (!$existingBook->rentedBy()->exists()) {
-            return response()->json(['ok' => true, 'message' => 'Book is not rented'], 400);
+            return response()->json(['message' => 'Book is not rented'], 400);
         }
 
         if ($existingBook->rented_by != $existingCustomer->id) {
-            return response()->json(['ok' => false, 'message' => 'You can not return a book if you do not rented it'], 400);
+            return response()->json(['message' => 'You can not return a book if you do not rented it'], 400);
         }
 
-        $existingBook->rented_by = NULL;
-        $existingBook->save();
-        $existingBook->refresh();
+        $this->bookRepository->update($existingBook->id, ['rented_by' => NULL]);
 
-
-        return response()->json(['ok' => true, 'message' => 'Book successfully returned']);
+        return response()->json(['message' => 'Book successfully returned']);
     }
 }

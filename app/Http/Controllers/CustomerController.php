@@ -4,18 +4,26 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreCustomerRequest;
 use App\Http\Resources\CustomerResource;
-use App\Models\Customer;
-use Illuminate\Http\Request;
+use App\Interfaces\CustomerRepositoryInterface;
+use Illuminate\Routing\Controller;
 
 class CustomerController extends Controller
 {
+    private $customerRepository;
+
+    public function __construct(CustomerRepositoryInterface $customerRepository)
+    {
+        $this->customerRepository = $customerRepository;
+    }
+
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        $existingCustomers = Customer::all();
-        return response()->json(['ok' => true, 'data' => CustomerResource::collection($existingCustomers)]);
+        $existingCustomers = $this->customerRepository->all();
+        $serializedCustomers = CustomerResource::collection($existingCustomers);
+        return response()->json(['data' => $serializedCustomers]);
     }
 
     /**
@@ -23,9 +31,9 @@ class CustomerController extends Controller
      */
     public function store(StoreCustomerRequest $request)
     {
-        $data = $request->validated();
-        Customer::create($data);
-        return response()->json(['ok' => true, 'message' => 'Customer successfully created'], 201);
+        $requestData = $request->validated();
+        $this->customerRepository->create($requestData);
+        return response()->json(['message' => 'Customer successfully created'], 201);
     }
 
     /**
@@ -33,11 +41,13 @@ class CustomerController extends Controller
      */
     public function show($customerId)
     {
-        $existingCustomer = Customer::find($customerId);
+        $existingCustomer = $this->customerRepository->getById($customerId);
         if (!$existingCustomer)
-            return response()->json(['ok' => true, 'message' => 'Customer not found'], 404);
+            return response()->json(['message' => 'Customer not found'], 404);
 
-        return response()->json(['ok' => true, 'data' => new CustomerResource($existingCustomer)]);
+
+        $serializedCustomer = new CustomerResource($existingCustomer);
+        return response()->json(['data' => $serializedCustomer]);
     }
 
 
@@ -46,11 +56,12 @@ class CustomerController extends Controller
      */
     public function destroy($customerId)
     {
-        $existingCustomer = Customer::find($customerId);
+        $existingCustomer = $this->customerRepository->getById($customerId);
         if (!$existingCustomer)
-            return response()->json(['ok' => true, 'message' => 'Customer not found'], 404);
+            return response()->json(['message' => 'Customer not found'], 404);
 
-        $existingCustomer->delete();
-        return response()->json(['ok' => true, 'message' => 'Customer successfully deleted']);
+        $this->customerRepository->delete($customerId);
+
+        return response()->json(['message' => 'Customer successfully deleted']);
     }
 }
