@@ -1,7 +1,7 @@
 ## Endpoints
 - GET /api/books [x]
 - GET /api/books?page=1 [x]
-- GET /api/books?rented_by_first_name=Adam&tile=asdf... [x]
+- GET /api/books?query=Adam... [x]
 - GET /api/books/{book_id} [x]
 - GET /api/customers [x]
 - GET /api/customers/{customer_id} [x]

@@ -24,8 +24,9 @@ class BookController extends Controller
      */
     public function index(Request $request)
     {
-        $filters = $request->query();
-        $existingBooks = $this->bookRepository->all($filters);
+        $searchQuery = $request->get('query') ?? '';
+
+        $existingBooks = $this->bookRepository->all($searchQuery);
         $serializedBooks = BookResource::collection($existingBooks);
 
         return response()->json([

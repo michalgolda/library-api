@@ -12,7 +12,7 @@ class DatabaseCustomerRepository implements CustomerRepositoryInterface
         return Customer::find($id);
     }
 
-    public function all(array $filters = [])
+    public function all(string $searchQuery = '')
     {
         return Customer::all();
     }

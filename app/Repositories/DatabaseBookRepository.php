@@ -13,35 +13,9 @@ class DatabaseBookRepository implements BookRepositoryInterface
         return Book::find($id);
     }
 
-    public function all(array $filters = [])
+    public function all(string $searchQuery = '')
     {
-        $query = Book::query();
-
-        $titleFilterValue = $filters['title'] ?? NULL;
-        if ($titleFilterValue) {
-            $query->where('title', $titleFilterValue);
-        }
-
-        $authorFilterValue = $filters['author'] ?? NULL;
-        if ($authorFilterValue) {
-            $query->where('author', $authorFilterValue);
-        }
-
-        $rentedByFirstNameFilterValue = $filters['rented_by_first_name'] ?? NULL;
-        if ($rentedByFirstNameFilterValue) {
-            $query->whereHas('rentedBy', function ($q) use ($rentedByFirstNameFilterValue) {
-                $q->where('first_name', $rentedByFirstNameFilterValue);
-            });
-        }
-
-        $rentedByLastNameFilterValue = $filters['rented_by_last_name'] ?? NULL;
-        if ($rentedByLastNameFilterValue) {
-            $query->whereHas('rentedBy', function ($q) use ($rentedByLastNameFilterValue) {
-                $q->where('last_name', $rentedByLastNameFilterValue);
-            });
-        }
-
-        $books = $query->paginate(20);
+        $books = Book::search($searchQuery)->paginate(20);
         return $books;
     }
 
