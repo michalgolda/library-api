@@ -20,6 +20,7 @@ class CustomerResource extends JsonResource
             'last_name' => $this->last_name,
             'created_at' => $this->created_at->toDateTimeString(),
             'updated_at' => $this->updated_at->toDateTimeString(),
+            'rented_books' => BookResource::collection($this->rentedBooks)
         ];
     }
 }

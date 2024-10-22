@@ -17,6 +17,6 @@ class Customer extends Model
 
     public function rentedBooks()
     {
-        return $this->hasMany(Book::class);
+        return $this->hasMany(Book::class, 'rented_by');
     }
 }
