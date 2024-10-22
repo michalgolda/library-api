@@ -18,6 +18,12 @@ class CustomerTest extends TestCase
         $response->assertStatus(200);
     }
 
+    public function test_store(): void
+    {
+        $response = $this->post('/api/customers', ['first_name' => 'fake first name', 'last_name' => 'fake last name']);
+        $response->assertStatus(201);
+    }
+
     public function test_show(): void
     {
         $response = $this->get('/api/customers/1');
